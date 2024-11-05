@@ -40,6 +40,14 @@ class Miner(BaseMinerNeuron):
         super(Miner, self).__init__(config=config)
         self.league_commitments = []
         self.load_league_commitments()
+        self.huggingface_model = self.load_huggingface_model()
+
+    def load_huggingface_model(self):
+        # Load the model from Hugging Face
+        model = load_model(
+            hf_hub_download(repo_id="sportstensor/basic_model", filename="model.keras")
+        )
+        return model
 
     def load_league_commitments(self):
         load_dotenv(dotenv_path=MINER_ENV_PATH, override=True)
