@@ -1,5 +1,6 @@
 import os
 import time
+import typing
 from dotenv import load_dotenv
 import bittensor as bt
 from base.miner import BaseMinerNeuron
