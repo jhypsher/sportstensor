@@ -45,6 +45,24 @@ class Miner(BaseMinerNeuron):
         self.load_league_commitments()
         self.models = self.load_huggingface_model()
 
+    def load_league_commitments(self):
+         league_commitments = os.getenv("LEAGUE_COMMITMENTS") 
+         leagues_list = league_commitments.split(",")
+
+         leagues = [] 
+         for league_string in leagues_list:
+             try:
+                 league = get_league_from_string(league_string.strip()) 
+                 leagues.append(league)   
+             except ValueError: 
+                print(f"Warning: Ignoring invalid league '{league_string}'")
+         
+         if not leagues or len(leagues) == 0:
+            bt.logging.error("No leagues found in the environment variable LEAGUE_COMMITMENTS.")
+            self.league_commitments = []
+         else:
+            self.league_commitments = leagues 
+
     def load_huggingface_model(self):
         try:
             bt.logging.info("Loading models from Hugging Face")
