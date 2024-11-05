@@ -43,37 +43,41 @@ class Miner(BaseMinerNeuron):
         super(Miner, self).__init__(config=config)
         self.league_commitments = []
         self.load_league_commitments()
-        self.huggingface_model = self.load_huggingface_model()
+        self.models = self.load_huggingface_model()
 
     def load_huggingface_model(self):
         try:
-            bt.logging.info("Loading model from Hugging Face")
-            model = load_model(
-                hf_hub_download(repo_id="sportstensor/basic_model", filename="model.keras")
-            )
-            bt.logging.info("Model loaded successfully")
-            return model
+            bt.logging.info("Loading models from Hugging Face")
+            
+            # Download and load multiple files
+            model_keras = hf_hub_download(repo_id="sportstensor/basic_model", filename="model.keras")
+            epl_model = hf_hub_download(repo_id="sportstensor/basic_model", filename="epl/model.keras")
+            mlb_model = hf_hub_download(repo_id="sportstensor/basic_model", filename="mlb/model.keras")
+            mls_model = hf_hub_download(repo_id="sportstensor/basic_model", filename="mls/model.keras")
+            nfl_model = hf_hub_download(repo_id="sportstensor/basic_model", filename="nfl/model.keras")
+            
+            # Load the models as needed
+            model = load_model(model_keras)
+            epl_model = load_model(epl_model)
+            mlb_model = load_model(mlb_model)
+            mls_model = load_model(mls_model)
+            nfl_model = load_model(nfl_model)
+            
+            bt.logging.info("Models loaded successfully")
+            
+            # Store models in a dictionary for easy access
+            self.models = {
+                "general": model,
+                "epl": epl_model,
+                "mlb": mlb_model,
+                "mls": mls_model,
+                "nfl": nfl_model
+            }
+            
+            return self.models
         except Exception as e:
-            bt.logging.error(f"Error loading model: {str(e)}")
+            bt.logging.error(f"Error loading models: {str(e)}")
             return None
-
-    def load_league_commitments(self):
-        league_commitments = os.getenv("LEAGUE_COMMITMENTS")
-        leagues_list = league_commitments.split(",")
-
-        leagues = []
-        for league_string in leagues_list:
-            try:
-                league = get_league_from_string(league_string.strip())
-                leagues.append(league)
-            except ValueError:
-                print(f"Warning: Ignoring invalid league '{league_string}'")
-
-        if not leagues or len(leagues) == 0:
-            bt.logging.error("No leagues found in the environment variable LEAGUE_COMMITMENTS.")
-            self.league_commitments = []
-        else:
-            self.league_commitments = leagues
 
     async def get_match_prediction(self, synapse: GetMatchPrediction) -> GetMatchPrediction:
         bt.logging.info(
