@@ -10,6 +10,9 @@ from st.sport_prediction_model import make_match_prediction
 from huggingface_hub import hf_hub_download
 from keras.models import load_model
 
+# Set the Keras backend to "jax" 
+os.environ["KERAS_BACKEND"] = "jax"
+
 # Define the path to the miner.env file
 MINER_ENV_PATH = os.path.join(os.path.dirname(__file__), 'miner.env')
 load_dotenv(dotenv_path=MINER_ENV_PATH, override=True)
@@ -28,14 +31,14 @@ class Miner(BaseMinerNeuron):
             bt.logging.info("Loading models from Hugging Face")
             
             # Download and load multiple files
-            
+            model_keras = hf_hub_download(repo_id="sportstensor/basic_model", filename="model.keras")
             epl_model = hf_hub_download(repo_id="sportstensor/basic_model", filename="epl/model.keras")
             mlb_model = hf_hub_download(repo_id="sportstensor/basic_model", filename="mlb/model.keras")
             mls_model = hf_hub_download(repo_id="sportstensor/basic_model", filename="mls/model.keras")
             nfl_model = hf_hub_download(repo_id="sportstensor/basic_model", filename="nfl/model.keras")
             
             # Load the models as needed
-            
+            model = load_model(model_keras)
             epl_model = load_model(epl_model)
             mlb_model = load_model(mlb_model)
             mls_model = load_model(mls_model)
