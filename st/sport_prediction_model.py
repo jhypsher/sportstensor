@@ -10,9 +10,17 @@ from keras.models import load_model
 class SportPredictionModel(ABC):
     def __init__(self, prediction):
         self.prediction = prediction
-        self.huggingface_model = load_model(
-            hf_hub_download(repo_id="sportstensor/basic_model", filename="model.keras")
-        )
+        self.huggingface_models = self.load_models()
+
+    def load_models(self):
+        models = {
+            "general": load_model(hf_hub_download(repo_id="sportstensor/basic_model", filename="model.keras")),
+            "epl": load_model(hf_hub_download(repo_id="sportstensor/basic_model", filename="epl/model.keras")),
+            "mlb": load_model(hf_hub_download(repo_id="sportstensor/basic_model", filename="mlb/model.keras")),
+            "mls": load_model(hf_hub_download(repo_id="sportstensor/basic_model", filename="mls/model.keras")),
+            "nfl": load_model(hf_hub_download(repo_id="sportstensor/basic_model", filename="nfl/model.keras"))
+        }
+        return models
 
     @abstractmethod
     def make_prediction(self):
