@@ -1,31 +1,8 @@
-# The MIT License (MIT)
-# Copyright © 2024 sportstensor
-
-# Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
-# documentation files (the “Software”), to deal in the Software without restriction, including without limitation
-# the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software,
-# and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-# The above copyright notice and this permission notice shall be included in all copies or substantial portions of
-# the Software.
-
-# THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO
-# THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
-# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-# DEALINGS IN THE SOFTWARE.
-
 import os
 import time
-import traceback
-import typing
 from dotenv import load_dotenv
 import bittensor as bt
-
-import base
 from base.miner import BaseMinerNeuron
-
-from common import constants
 from common.data import League, get_league_from_string
 from common.protocol import GetLeagueCommitments, GetMatchPrediction
 from st.sport_prediction_model import make_match_prediction
@@ -44,24 +21,6 @@ class Miner(BaseMinerNeuron):
         self.league_commitments = []
         self.load_league_commitments()
         self.models = self.load_huggingface_model()
-
-    def load_league_commitments(self):
-         league_commitments = os.getenv("LEAGUE_COMMITMENTS") 
-         leagues_list = league_commitments.split(",")
-
-         leagues = [] 
-         for league_string in leagues_list:
-             try:
-                 league = get_league_from_string(league_string.strip()) 
-                 leagues.append(league)   
-             except ValueError: 
-                print(f"Warning: Ignoring invalid league '{league_string}'")
-         
-         if not leagues or len(leagues) == 0:
-            bt.logging.error("No leagues found in the environment variable LEAGUE_COMMITMENTS.")
-            self.league_commitments = []
-         else:
-            self.league_commitments = leagues 
 
     def load_huggingface_model(self):
         try:
@@ -96,6 +55,24 @@ class Miner(BaseMinerNeuron):
         except Exception as e:
             bt.logging.error(f"Error loading models: {str(e)}")
             return None
+
+    def load_league_commitments(self):
+        league_commitments = os.getenv("LEAGUE_COMMITMENTS")
+        leagues_list = league_commitments.split(",")
+
+        leagues = []
+        for league_string in leagues_list:
+            try:
+                league = get_league_from_string(league_string.strip())
+                leagues.append(league)
+            except ValueError:
+                print(f"Warning: Ignoring invalid league '{league_string}'")
+
+        if not leagues or len(leagues) == 0:
+            bt.logging.error("No leagues found in the environment variable LEAGUE_COMMITMENTS.")
+            self.league_commitments = []
+        else:
+            self.league_commitments = leagues
 
     async def get_match_prediction(self, synapse: GetMatchPrediction) -> GetMatchPrediction:
         bt.logging.info(
@@ -184,13 +161,13 @@ class Miner(BaseMinerNeuron):
         caller_uid = self.metagraph.hotkeys.index(
             synapse.dendrite.hotkey
         )  # Get the caller index.
-        prirority = float(
+        priority = float(
             self.metagraph.S[caller_uid]
         )  # Return the stake as the priority.
         bt.logging.trace(
-            f"Prioritizing {synapse.dendrite.hotkey} with value: ", prirority
+            f"Prioritizing {synapse.dendrite.hotkey} with value: ", priority
         )
-        return prirority
+        return priority
 
     def save_state(self):
         pass
