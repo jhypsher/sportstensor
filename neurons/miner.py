@@ -29,9 +29,12 @@ from common import constants
 from common.data import League, get_league_from_string
 from common.protocol import GetLeagueCommitments, GetMatchPrediction
 from st.sport_prediction_model import make_match_prediction
+from huggingface_hub import hf_hub_download
+from keras.models import load_model
 
 # Define the path to the miner.env file
 MINER_ENV_PATH = os.path.join(os.path.dirname(__file__), 'miner.env')
+load_dotenv(dotenv_path=MINER_ENV_PATH, override=True)
 
 class Miner(BaseMinerNeuron):
     """The Sportstensor Miner."""
@@ -43,17 +46,21 @@ class Miner(BaseMinerNeuron):
         self.huggingface_model = self.load_huggingface_model()
 
     def load_huggingface_model(self):
-        # Load the model from Hugging Face
-        model = load_model(
-            hf_hub_download(repo_id="sportstensor/basic_model", filename="model.keras")
-        )
-        return model
+        try:
+            bt.logging.info("Loading model from Hugging Face")
+            model = load_model(
+                hf_hub_download(repo_id="sportstensor/basic_model", filename="model.keras")
+            )
+            bt.logging.info("Model loaded successfully")
+            return model
+        except Exception as e:
+            bt.logging.error(f"Error loading model: {str(e)}")
+            return None
 
     def load_league_commitments(self):
-        load_dotenv(dotenv_path=MINER_ENV_PATH, override=True)
         league_commitments = os.getenv("LEAGUE_COMMITMENTS")
         leagues_list = league_commitments.split(",")
-        
+
         leagues = []
         for league_string in leagues_list:
             try:
@@ -67,6 +74,21 @@ class Miner(BaseMinerNeuron):
             self.league_commitments = []
         else:
             self.league_commitments = leagues
+
+    async def get_match_prediction(self, synapse: GetMatchPrediction) -> GetMatchPrediction:
+        bt.logging.info(
+            f"Received GetMatchPrediction request in forward() from {synapse.dendrite.hotkey}."
+        )
+
+        # Make the match prediction based on the requested MatchPrediction object
+        synapse.match_prediction = make_match_prediction(synapse.match_prediction)
+        synapse.version = constants.PROTOCOL_VERSION
+
+        bt.logging.success(
+            f"Returning MatchPrediction to {synapse.dendrite.hotkey}: \n{synapse.match_prediction.pretty_print()}."
+        )
+
+        return synapse
 
     async def get_league_commitments(self, synapse: GetLeagueCommitments) -> GetLeagueCommitments:
         bt.logging.info(
@@ -83,21 +105,6 @@ class Miner(BaseMinerNeuron):
         )
 
         return synapse
-
-    async def get_match_prediction(self, synapse: GetMatchPrediction) -> GetMatchPrediction:
-        bt.logging.info(
-            f"Received GetMatchPrediction request in forward() from {synapse.dendrite.hotkey}."
-        )
-
-        # Make the match prediction based on the requested MatchPrediction object
-        synapse.match_prediction = make_match_prediction(synapse.match_prediction)
-        synapse.version = constants.PROTOCOL_VERSION
-
-        bt.logging.success(
-            f"Returning MatchPrediction to {synapse.dendrite.hotkey}: \n{synapse.match_prediction.pretty_print()}."
-        )
-
-        return synapse
     
     async def get_league_commitments_blacklist(
         self, synapse: GetLeagueCommitments
@@ -110,35 +117,6 @@ class Miner(BaseMinerNeuron):
         return await self.blacklist(synapse)
 
     async def blacklist(self, synapse: bt.Synapse) -> typing.Tuple[bool, str]:
-        """
-        Determines whether an incoming request should be blacklisted and thus ignored. Your implementation should
-        define the logic for blacklisting requests based on your needs and desired security parameters.
-
-        Blacklist runs before the synapse data has been deserialized (i.e. before synapse.data is available).
-        The synapse is instead contructed via the headers of the request. It is important to blacklist
-        requests before they are deserialized to avoid wasting resources on requests that will be ignored.
-
-        Args:
-            synapse (template.protocol.Videos): A synapse object constructed from the headers of the incoming request.
-
-        Returns:
-            Tuple[bool, str]: A tuple containing a boolean indicating whether the synapse's hotkey is blacklisted,
-                            and a string providing the reason for the decision.
-
-        This function is a security measure to prevent resource wastage on undesired requests. It should be enhanced
-        to include checks against the metagraph for entity registration, validator status, and sufficient stake
-        before deserialization of synapse data to minimize processing overhead.
-
-        Example blacklist logic:
-        - Reject if the hotkey is not a registered entity within the metagraph.
-        - Consider blacklisting entities that are not validators or have insufficient stake.
-
-        In practice it would be wise to blacklist requests from entities that are not validators, or do not have
-        enough stake. This can be checked via metagraph.S and metagraph.validator_permit. You can always attain
-        the uid of the sender via a metagraph.hotkeys.index( synapse.dendrite.hotkey ) call.
-
-        Otherwise, allow the request to be processed further.
-        """
         if not synapse.dendrite.hotkey:
             return True, "Hotkey not provided"
         registered = synapse.dendrite.hotkey in self.metagraph.hotkeys
@@ -152,7 +130,6 @@ class Miner(BaseMinerNeuron):
 
         uid = self.metagraph.hotkeys.index(synapse.dendrite.hotkey)
         if self.config.blacklist.force_validator_permit:
-            # If the config is set to force validator permit, then we should only allow requests from validators.
             if not self.metagraph.validator_permit[uid]:
                 bt.logging.warning(
                     f"Blacklisting a request from non-validator hotkey {synapse.dendrite.hotkey}"
@@ -182,25 +159,6 @@ class Miner(BaseMinerNeuron):
         return await self.priority(synapse)
 
     async def priority(self, synapse: bt.Synapse) -> float:
-        """
-        The priority function determines the order in which requests are handled. More valuable or higher-priority
-        requests are processed before others. You should design your own priority mechanism with care.
-
-        This implementation assigns priority to incoming requests based on the calling entity's stake in the metagraph.
-
-        Args:
-            synapse (template.protocol.Videos): The synapse object that contains metadata about the incoming request.
-
-        Returns:
-            float: A priority score derived from the stake of the calling entity.
-
-        Miners may recieve messages from multiple entities at once. This function determines which request should be
-        processed first. Higher values indicate that the request should be processed first. Lower values indicate
-        that the request should be processed later.
-
-        Example priority logic:
-        - A higher stake results in a higher priority value.
-        """
         caller_uid = self.metagraph.hotkeys.index(
             synapse.dendrite.hotkey
         )  # Get the caller index.
@@ -213,12 +171,7 @@ class Miner(BaseMinerNeuron):
         return prirority
 
     def save_state(self):
-        """
-        We define this function to avoid printing out the log message in the BaseNeuron class
-        that says `save_state() not implemented`.
-        """
         pass
-
 
 # This is the main function, which runs the miner.
 if __name__ == "__main__":
