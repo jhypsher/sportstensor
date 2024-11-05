@@ -28,14 +28,14 @@ class Miner(BaseMinerNeuron):
             bt.logging.info("Loading models from Hugging Face")
             
             # Download and load multiple files
-            model_keras = hf_hub_download(repo_id="sportstensor/basic_model", filename="model.keras")
+            
             epl_model = hf_hub_download(repo_id="sportstensor/basic_model", filename="epl/model.keras")
             mlb_model = hf_hub_download(repo_id="sportstensor/basic_model", filename="mlb/model.keras")
             mls_model = hf_hub_download(repo_id="sportstensor/basic_model", filename="mls/model.keras")
             nfl_model = hf_hub_download(repo_id="sportstensor/basic_model", filename="nfl/model.keras")
             
             # Load the models as needed
-            model = load_model(model_keras)
+            
             epl_model = load_model(epl_model)
             mlb_model = load_model(mlb_model)
             mls_model = load_model(mls_model)

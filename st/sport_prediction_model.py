@@ -14,7 +14,7 @@ class SportPredictionModel(ABC):
 
     def load_models(self):
         models = {
-            "general": load_model(hf_hub_download(repo_id="sportstensor/basic_model", filename="model.keras")),
+            
             "epl": load_model(hf_hub_download(repo_id="sportstensor/basic_model", filename="epl/model.keras")),
             "mlb": load_model(hf_hub_download(repo_id="sportstensor/basic_model", filename="mlb/model.keras")),
             "mls": load_model(hf_hub_download(repo_id="sportstensor/basic_model", filename="mls/model.keras")),
