@@ -4,12 +4,23 @@ import bittensor as bt
 from common.data import MatchPrediction, Sport, League, get_league_from_string, ProbabilityChoice
 import logging
 import random
-
+from huggingface_hub import hf_hub_download
+from keras.models import load_model
 
 class SportPredictionModel(ABC):
     def __init__(self, prediction):
         self.prediction = prediction
-        self.huggingface_model = None
+        self.huggingface_models = self.load_models()
+
+    def load_models(self):
+        models = {
+            "general": load_model(hf_hub_download(repo_id="sportstensor/basic_model", filename="model.keras")),
+            "epl": load_model(hf_hub_download(repo_id="sportstensor/basic_model", filename="epl/model.keras")),
+            "mlb": load_model(hf_hub_download(repo_id="sportstensor/basic_model", filename="mlb/model.keras")),
+            "mls": load_model(hf_hub_download(repo_id="sportstensor/basic_model", filename="mls/model.keras")),
+            "nfl": load_model(hf_hub_download(repo_id="sportstensor/basic_model", filename="nfl/model.keras"))
+        }
+        return models
 
     @abstractmethod
     def make_prediction(self):
